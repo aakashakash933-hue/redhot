@@ -1,0 +1,546 @@
+import { useState, useEffect } from "react";
+
+// ─── Bootstrap 5 CDN injected once ───────────────────────────────────────────
+function useBootstrap() {
+  useEffect(() => {
+    if (!document.getElementById("bs5-css")) {
+      const link = document.createElement("link");
+      link.id = "bs5-css";
+      link.rel = "stylesheet";
+      link.href = "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css";
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById("bs5-js")) {
+      const script = document.createElement("script");
+      script.id = "bs5-js";
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js";
+      document.head.appendChild(script);
+    }
+  }, []);
+}
+
+// ─── SHARED localStorage DB ──────────────────────────────────────────────────
+const DB_KEY   = "redhot_products";
+const DB_EVENT = "redhot_update";
+
+const SAMPLE_PRODUCTS = [
+  { id: 1, name: "Flame Oversized Hoodie",  price: 4999,  category: "Men",         image: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80",  affiliate_link: "#", badge: "HOT" },
+  { id: 2, name: "Crimson Slip Dress",       price: 3499,  category: "Women",       image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80",  affiliate_link: "#", badge: "NEW" },
+  { id: 3, name: "Ember Leather Watch",      price: 12999, category: "Accessories", image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=400&q=80",  affiliate_link: "#", badge: "" },
+  { id: 4, name: "Blaze Wireless Earbuds",   price: 7999,  category: "Electronics", image: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&q=80",  affiliate_link: "#", badge: "HOT" },
+  { id: 5, name: "Inferno Cargo Pants",      price: 5499,  category: "Men",         image: "https://images.unsplash.com/photo-1602293589930-45aad59ba3ab?w=400&q=80",  affiliate_link: "#", badge: "" },
+  { id: 6, name: "Scarlet Chain Necklace",   price: 2199,  category: "Accessories", image: "https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&q=80",  affiliate_link: "#", badge: "NEW" },
+  { id: 7, name: "Heat Sensor Smart Watch",  price: 18999, category: "Electronics", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80",  affiliate_link: "#", badge: "" },
+  { id: 8, name: "Lava Crop Jacket",         price: 6799,  category: "Women",       image: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80",  affiliate_link: "#", badge: "HOT" },
+];
+
+function readDB() {
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  localStorage.setItem(DB_KEY, JSON.stringify(SAMPLE_PRODUCTS));
+  return SAMPLE_PRODUCTS;
+}
+
+function useProducts() {
+  const [products, setProducts] = useState(readDB);
+  useEffect(() => {
+    const onSameTab  = ()  => setProducts(readDB());
+    const onOtherTab = (e) => { if (e.key === DB_KEY) setProducts(readDB()); };
+    window.addEventListener(DB_EVENT, onSameTab);
+    window.addEventListener("storage", onOtherTab);
+    return () => {
+      window.removeEventListener(DB_EVENT, onSameTab);
+      window.removeEventListener("storage", onOtherTab);
+    };
+  }, []);
+  return products;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CATEGORIES = ["All", "Men", "Women", "Accessories", "Electronics"];
+
+export default function RedHotStore() {
+  useBootstrap();
+  const products = useProducts();
+
+  const [search,      setSearch]      = useState("");
+  const [category,    setCategory]    = useState("All");
+  const [sort,        setSort]        = useState("default");
+  const [wishlist,    setWishlist]    = useState([]);
+  const [redirecting, setRedirecting] = useState(null);
+  const [heroVisible, setHeroVisible] = useState(false);
+
+  useEffect(() => { setTimeout(() => setHeroVisible(true), 80); }, []);
+
+  const filtered = products
+    .filter(p => {
+      const q = search.toLowerCase();
+      return (
+        (p.name || "").toLowerCase().includes(q) &&
+        (category === "All" || p.category === category)
+      );
+    })
+    .sort((a, b) => {
+      if (sort === "price_asc")  return a.price - b.price;
+      if (sort === "price_desc") return b.price - a.price;
+      if (sort === "name")       return (a.name || "").localeCompare(b.name || "");
+      return 0;
+    });
+
+  const toggleWishlist = (id) =>
+    setWishlist(w => w.includes(id) ? w.filter(x => x !== id) : [...w, id]);
+
+  const handleBuy = (product) => {
+    setRedirecting(product.id);
+    setTimeout(() => {
+      setRedirecting(null);
+      if (product.affiliate_link && product.affiliate_link !== "#") {
+        window.open(product.affiliate_link, "_blank");
+      } else {
+        alert("Affiliate link not set for this product.");
+      }
+    }, 1100);
+  };
+
+  return (
+    <div style={{ fontFamily: "'Cormorant Garamond', 'Georgia', serif", background: "#f7f5f2", minHeight: "100vh", color: "#2c2c2c" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+        :root {
+          --cream:   #f7f5f2;
+          --warm:    #ede8e0;
+          --sand:    #d4c9b8;
+          --taupe:   #9e8f7e;
+          --umber:   #5c4f3d;
+          --charcoal:#2c2c2c;
+          --white:   #ffffff;
+          --accent:  #7c6a55;
+          --accent2: #a08060;
+        }
+
+        * { box-sizing: border-box; }
+
+        body { background: var(--cream) !important; }
+
+        /* ── scrollbar ── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--sand); border-radius: 2px; }
+
+        /* ── navbar override ── */
+        .rh-navbar {
+          background: rgba(247,245,242,0.96) !important;
+          backdrop-filter: blur(14px);
+          border-bottom: 1px solid var(--warm);
+          padding: 0 2rem;
+          height: 64px;
+        }
+        .rh-brand {
+          font-family: 'Cormorant Garamond', serif;
+          font-weight: 700;
+          font-size: 1.6rem;
+          color: var(--umber) !important;
+          letter-spacing: 0.04em;
+          text-decoration: none;
+        }
+        .rh-wishcount {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          letter-spacing: 0.18em;
+          color: var(--taupe);
+        }
+
+        /* ── hero ── */
+        .rh-hero {
+          background: linear-gradient(160deg, var(--warm) 0%, var(--cream) 60%);
+          border-bottom: 1px solid var(--sand);
+          padding: 80px 2rem 60px;
+          text-align: center;
+        }
+        .rh-hero-eyebrow {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 10px;
+          letter-spacing: 0.38em;
+          color: var(--taupe);
+          font-weight: 500;
+          margin-bottom: 1.1rem;
+          text-transform: uppercase;
+        }
+        .rh-hero-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: clamp(2.6rem, 6vw, 5rem);
+          font-weight: 700;
+          line-height: 1.08;
+          color: var(--charcoal);
+          margin-bottom: 1rem;
+        }
+        .rh-hero-title span { color: var(--accent); font-style: italic; }
+        .rh-hero-sub {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          color: var(--taupe);
+          letter-spacing: 0.1em;
+          max-width: 380px;
+          margin: 0 auto;
+        }
+        .hero-fade { opacity: 0; transform: translateY(24px); transition: opacity .9s ease, transform .9s ease; }
+        .hero-fade.in { opacity: 1; transform: translateY(0); }
+
+        /* ── filter section ── */
+        .rh-filters {
+          background: var(--white);
+          border-bottom: 1px solid var(--warm);
+          padding: 1.5rem 2rem;
+          position: sticky;
+          top: 64px;
+          z-index: 40;
+        }
+        .rh-search.form-control {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          background: var(--cream);
+          border: 1px solid var(--sand);
+          border-radius: 4px;
+          color: var(--charcoal);
+          padding: 0.55rem 1rem;
+          box-shadow: none !important;
+        }
+        .rh-search.form-control:focus {
+          border-color: var(--accent);
+          background: var(--white);
+        }
+        .rh-select.form-select {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          letter-spacing: 0.06em;
+          background: var(--cream);
+          border: 1px solid var(--sand);
+          border-radius: 4px;
+          color: var(--charcoal);
+          padding: 0.55rem 2rem 0.55rem 1rem;
+          box-shadow: none !important;
+          cursor: pointer;
+        }
+        .rh-select.form-select:focus { border-color: var(--accent); }
+
+        /* ── category pills ── */
+        .rh-pill {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 10px;
+          letter-spacing: 0.2em;
+          font-weight: 500;
+          padding: 6px 18px;
+          border-radius: 2px;
+          border: 1px solid var(--sand);
+          background: transparent;
+          color: var(--taupe);
+          cursor: pointer;
+          transition: all 0.2s;
+          text-transform: uppercase;
+        }
+        .rh-pill:hover { border-color: var(--umber); color: var(--umber); background: var(--warm); }
+        .rh-pill.active {
+          background: var(--umber);
+          border-color: var(--umber);
+          color: var(--white);
+        }
+
+        /* ── product card ── */
+        .rh-card {
+          background: var(--white);
+          border: 1px solid var(--warm);
+          border-radius: 6px;
+          overflow: hidden;
+          transition: transform 0.35s ease, box-shadow 0.35s ease;
+        }
+        .rh-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 20px 40px rgba(92,79,61,0.12);
+        }
+        .rh-card-img {
+          width: 100%;
+          height: 280px;
+          object-fit: cover;
+          display: block;
+          background: var(--warm);
+        }
+        .rh-badge-hot {
+          position: absolute;
+          top: 12px; left: 12px;
+          background: var(--umber);
+          color: var(--white);
+          font-family: 'DM Sans', sans-serif;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          padding: 3px 10px;
+          border-radius: 2px;
+          text-transform: uppercase;
+        }
+        .rh-badge-new {
+          position: absolute;
+          top: 12px; left: 12px;
+          background: var(--sand);
+          color: var(--umber);
+          font-family: 'DM Sans', sans-serif;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          padding: 3px 10px;
+          border-radius: 2px;
+          text-transform: uppercase;
+        }
+        .rh-wish-btn {
+          position: absolute;
+          top: 10px; right: 10px;
+          width: 34px; height: 34px;
+          background: rgba(247,245,242,0.85);
+          backdrop-filter: blur(4px);
+          border: 1px solid var(--sand);
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 16px;
+          cursor: pointer;
+          transition: all 0.2s;
+          color: var(--taupe);
+        }
+        .rh-wish-btn:hover { background: var(--white); border-color: var(--umber); }
+        .rh-wish-btn.active { color: var(--umber); }
+
+        .rh-card-body {
+          padding: 18px 16px 16px;
+        }
+        .rh-cat-label {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 9px;
+          letter-spacing: 0.22em;
+          color: var(--taupe);
+          text-transform: uppercase;
+          margin-bottom: 5px;
+        }
+        .rh-prod-name {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--charcoal);
+          line-height: 1.3;
+          margin-bottom: 14px;
+        }
+        .rh-price {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.05rem;
+          font-weight: 600;
+          color: var(--umber);
+        }
+        .rh-buy-btn {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          background: var(--charcoal);
+          color: var(--white);
+          border: none;
+          padding: 8px 18px;
+          border-radius: 3px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .rh-buy-btn:hover {
+          background: var(--umber);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(92,79,61,0.25);
+        }
+
+        /* ── count line ── */
+        .rh-count {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 10px;
+          letter-spacing: 0.2em;
+          color: var(--sand);
+          text-transform: uppercase;
+          padding: 1.2rem 2rem 0;
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        /* ── empty state ── */
+        .rh-empty {
+          text-align: center;
+          padding: 100px 0;
+          color: var(--sand);
+        }
+        .rh-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .rh-empty-text {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+        }
+
+        /* ── redirect overlay ── */
+        .rh-overlay {
+          position: fixed; inset: 0;
+          background: rgba(247,245,242,0.92);
+          backdrop-filter: blur(6px);
+          z-index: 9999;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 18px;
+        }
+        .rh-spinner {
+          width: 32px; height: 32px;
+          border: 2px solid var(--sand);
+          border-top-color: var(--umber);
+          border-radius: 50%;
+          animation: rh-spin 0.8s linear infinite;
+        }
+        .rh-redirect-text {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          letter-spacing: 0.22em;
+          color: var(--taupe);
+          text-transform: uppercase;
+        }
+        @keyframes rh-spin { to { transform: rotate(360deg); } }
+
+        /* ── footer ── */
+        .rh-footer {
+          background: var(--charcoal);
+          color: var(--taupe);
+          text-align: center;
+          padding: 2rem;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          letter-spacing: 0.16em;
+        }
+      `}</style>
+
+      {/* REDIRECT OVERLAY */}
+      {redirecting && (
+        <div className="rh-overlay">
+          <div className="rh-spinner" />
+          <div className="rh-redirect-text">Redirecting…</div>
+        </div>
+      )}
+
+      {/* NAV */}
+      <nav className="rh-navbar navbar sticky-top d-flex align-items-center justify-content-between">
+        <a className="rh-brand">redhot</a>
+        {wishlist.length > 0 && (
+          <span className="rh-wishcount">♥ {wishlist.length} SAVED</span>
+        )}
+      </nav>
+
+      {/* HERO */}
+      <div className="rh-hero">
+        <div className={`hero-fade ${heroVisible ? "in" : ""}`}>
+          <div className="rh-hero-eyebrow">New Arrivals</div>
+          <h1 className="rh-hero-title">
+            Discover What's<br />
+            <span>Curated & Coveted</span>
+          </h1>
+          <p className="rh-hero-sub">Refined drops. Every piece worth wearing.</p>
+        </div>
+      </div>
+
+      {/* FILTERS */}
+      <div className="rh-filters">
+        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+          <div className="d-flex gap-2 flex-wrap mb-3">
+            <input
+              className="rh-search form-control flex-grow-1"
+              style={{ minWidth: 200 }}
+              placeholder="Search products…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <select
+              className="rh-select form-select"
+              style={{ width: "auto" }}
+              value={sort}
+              onChange={e => setSort(e.target.value)}
+            >
+              <option value="default">Sort: Default</option>
+              <option value="price_asc">Price: Low → High</option>
+              <option value="price_desc">Price: High → Low</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+          <div className="d-flex gap-2 flex-wrap">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                className={`rh-pill ${category === cat ? "active" : ""}`}
+                onClick={() => setCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* COUNT */}
+      <div className="rh-count">
+        Showing {filtered.length} of {products.length} products
+      </div>
+
+      {/* GRID */}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem 5rem" }}>
+        {filtered.length === 0 ? (
+          <div className="rh-empty">
+            <div className="rh-empty-icon">◇</div>
+            <div className="rh-empty-text">No products found</div>
+          </div>
+        ) : (
+          <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-4">
+            {filtered.map(product => (
+              <div className="col" key={product.id}>
+                <div className="rh-card h-100">
+                  {/* IMAGE */}
+                  <div style={{ position: "relative" }}>
+                    <img
+                      src={product.image || "https://via.placeholder.com/300x300?text=No+Image"}
+                      alt={product.name}
+                      className="rh-card-img"
+                      onError={e => { e.target.src = "https://via.placeholder.com/300x300?text=No+Image"; }}
+                    />
+                    {product.badge && (
+                      <span className={product.badge === "HOT" ? "rh-badge-hot" : "rh-badge-new"}>
+                        {product.badge}
+                      </span>
+                    )}
+                    <button
+                      className={`rh-wish-btn ${wishlist.includes(product.id) ? "active" : ""}`}
+                      onClick={() => toggleWishlist(product.id)}
+                    >
+                      {wishlist.includes(product.id) ? "♥" : "♡"}
+                    </button>
+                  </div>
+
+                  {/* BODY */}
+                  <div className="rh-card-body">
+                    <div className="rh-cat-label">{(product.category || "").toUpperCase()}</div>
+                    <h3 className="rh-prod-name">{product.name}</h3>
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span className="rh-price">₹{(product.price || 0).toLocaleString()}</span>
+                      <button className="rh-buy-btn" onClick={() => handleBuy(product)}>
+                        Buy →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="rh-footer">© 2025 REDHOT — All rights reserved</div>
+    </div>
+  );
+}
